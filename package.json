@@ -1,0 +1,33 @@
+{
+  "name": "acnh-orders-api",
+  "version": "0.0.0",
+  "description": "A very simple and lightweight package that allows to subscribe to events coming from SysBot.ACNHOrders and make HTTP-like requests to it, via the bot's SocketAPIServer.",
+  "main": "index.js",
+  "scripts": {
+    "start": "npm run build && node ./dist/index.js",
+    "build": "rm -r -f ./dist && tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fehniix/acnh-orders-api.git"
+  },
+  "keywords": [
+    "api",
+    "acnh",
+    "ACNHOrders",
+    "bot",
+    "acnh-bot",
+    "communication",
+    "socket",
+    "api"
+  ],
+  "author": "Johnny Bueti",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Fehniix/acnh-orders-api/issues"
+  },
+  "homepage": "https://github.com/Fehniix/acnh-orders-api#readme",
+  "devDependencies": {
+    "@types/node": "^17.0.12"
+  }
+}
