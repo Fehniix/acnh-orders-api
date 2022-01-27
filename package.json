@@ -28,6 +28,9 @@
   },
   "homepage": "https://github.com/Fehniix/acnh-orders-api#readme",
   "devDependencies": {
-    "@types/node": "^17.0.12"
+    "@types/node": "~17.0.12"
+  },
+  "dependencies": {
+    "tiny-typed-emitter": "~2.1.0"
   }
 }

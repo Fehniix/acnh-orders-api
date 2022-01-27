@@ -1,19 +1,30 @@
+import { randomUUID } from "crypto";
+
 /**
  * Represents a socket API request.
  */
-export interface SocketAPIRequest {
+export class SocketAPIRequest {
 	/**
 	 * The unique identifier for the request.
 	 */
-	id: string,
+	public id: string;
 
 	/**
 	 * Represents the name of the endpoint to remotely execute and from which to fetch the result.
 	 */
-	endpoint: string,
+	public endpoint: string;
 
 	/**
 	 * The JSON-formatted arguments string to pass to the endpoint.
 	 */
-	args?: string
+	public args?: string;
+
+	/**
+	 * @param endpoint The name of the remote endpoint to call.
+	 * @param id If not provided, a random UUID is generated and assigned.
+	 */
+	public constructor(endpoint: string, id?: string) {
+		this.endpoint = endpoint;
+		this.id = id !== undefined ? id : randomUUID().toString();
+	}
 };
