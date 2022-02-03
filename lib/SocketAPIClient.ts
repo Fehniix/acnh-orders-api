@@ -8,6 +8,7 @@ import { SocketAPIRequest } from './model/SocketAPIRequest';
  */
 interface InternalSocketEvent {
 	'messageReceived': (message: SocketAPIMessage<unknown>) => void;
+	'eventReceived': (message: SocketAPIMessage<any>) => void;
 }
 
 /**
@@ -55,10 +56,35 @@ class SocketAPIClient {
 				this._connected = true;
 				resolve(true);
 			});
-
+			
 			this.socket.on('data', data => {
-				const response = JSON.parse(data.toString('utf8')) as SocketAPIMessage<unknown>;
-				this.eventEmitter.emit('messageReceived', response);
+				/**
+				 * There are instances in which TCP packets get merged.
+				 * The server `\0\0`-terminates each JSON-encoded `SocketAPIMessage`;
+				 * reading each individually is as simple as splitting on `\0\0` and filtering out `null`.
+				 */
+				const decodedResponses: string[] = data.toString('utf8')
+														.split('\0\0')
+														.map(res => res.replace(/\0\0/gi, ''))
+														.filter(res => !(res === '' || res === null));
+				
+				decodedResponses.forEach(decodedResponse => {
+					let response;
+					try {
+						response = JSON.parse(decodedResponse) as SocketAPIMessage<unknown>
+					} catch(ex) {
+						console.log('There was an error parsing the SocketAPIMessage:', ex);
+						console.log('Decoded message:', decodedResponse);
+					}
+
+					if (response === undefined || !this.isInstanceOfSocketAPIMessage(response))
+						return;
+
+					this.eventEmitter.emit('messageReceived', response);
+
+					if (response._type === 'event')
+						this.eventEmitter.emit('eventReceived', response);
+				});
 			});
 			
 			const errorHandler = () => { this._connected = false; this.socket.off('error', errorHandler); };
@@ -83,7 +109,6 @@ class SocketAPIClient {
 		if (request.id === undefined)
 			throw new ReferenceError('request.id must be defined.');
 
-		// debug(`Writing in ASCII: ${message}`);
 		return new Promise<SocketAPIMessage<T>>((resolve, reject) => {
 			this.socket.write(JSON.stringify(request), 'utf8', err => {
 				if (err !== undefined)
@@ -105,6 +130,31 @@ class SocketAPIClient {
 
 			this.eventEmitter.on('messageReceived', responseListener);
 		});
+	}
+
+	/**
+	 * Subsribes to server-emitted events.
+	 * @param callback The anonymous function that gets called whenever an event is fired by the .NET server.
+	 */
+	public subscribe<T>(callback: ((message: SocketAPIMessage<T>) => void)): void {
+		this.eventEmitter.on('eventReceived', callback);
+	}
+
+	/**
+	 * Removes the subscribed anonymous function from the internal event emitter.
+	 * @param callback The reference-equal function that was previously used to subscribe to server-emitted events.
+	 */
+	public unsubscribe<T>(callback: ((message: SocketAPIMessage<T>) => void)): void {
+		this.eventEmitter.off('eventReceived', callback);
+	}
+
+	/**
+	 * `obj` type-guard. Determines whether `obj` conforms to the `SocketAPIMessage` interface.
+	 */
+	private isInstanceOfSocketAPIMessage(obj: any): obj is SocketAPIMessage<any> {
+		return 	'status' in obj && (obj.status === 'okay' || obj.status === 'error') && 
+				'_type' in obj && (obj._type === 'event' || obj._type === 'response') &&
+				('error' in obj || 'value' in obj);
 	}
 }
 
