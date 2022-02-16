@@ -52,7 +52,10 @@ class SocketAPIClient {
 		return new Promise<boolean>(resolve => {
 			this.socket.connect(port, ipAddress);
 
-			setTimeout(() => resolve(false), timeout);
+			setTimeout(() => {
+				this.socket.removeAllListeners();
+				resolve(false);
+			}, timeout);
 
 			this.socket.once('connect', () => {
 				this.socket.setTimeout(0);
