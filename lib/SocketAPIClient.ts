@@ -43,13 +43,16 @@ class SocketAPIClient {
 	 * Establishes a TCP communication channel with the server designated by the supplied endpoint. 
 	 * @param ipAddress The IP address of the server.
 	 * @param port The port on which the server is accepting new clients.
+	 * @param timeout The number of milliseconds to wait before the starting process is considered timeout out.
 	 */
-	public async start(ipAddress: string, port: number): Promise<boolean> {
+	public async start(ipAddress: string, port: number, timeout: number = 5000): Promise<boolean> {
 		if (this._connected)
 			return false;
 
 		return new Promise<boolean>(resolve => {
 			this.socket.connect(port, ipAddress);
+
+			setTimeout(() => resolve(false), timeout);
 
 			this.socket.once('connect', () => {
 				this.socket.setTimeout(0);
