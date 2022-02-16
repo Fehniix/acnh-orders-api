@@ -60,37 +60,38 @@ class SocketAPIClient {
 			this.socket.once('connect', () => {
 				this.socket.setTimeout(0);
 				this._connected = true;
-				resolve(true);
-			});
-			
-			this.socket.on('data', data => {
-				/**
-				 * There are instances in which TCP packets get merged.
-				 * The server `\0\0`-terminates each JSON-encoded `SocketAPIMessage`;
-				 * reading each individually is as simple as splitting on `\0\0` and filtering out `null`.
-				 */
-				const decodedResponses: string[] = data.toString('utf8')
-														.split('\0\0')
-														.map(res => res.replace(/\0\0/gi, ''))
-														.filter(res => !(res === '' || res === null));
-				
-				decodedResponses.forEach(decodedResponse => {
-					let response;
-					try {
-						response = JSON.parse(decodedResponse) as SocketAPIMessage<unknown>
-					} catch(ex) {
-						console.log('There was an error parsing the SocketAPIMessage:', ex);
-						console.log('Decoded message:', decodedResponse);
-					}
 
-					if (response === undefined || !this.isInstanceOfSocketAPIMessage(response))
-						return;
-
-					this.eventEmitter.emit('messageReceived', response);
-
-					if (response._type === 'event')
-						this.eventEmitter.emit('eventReceived', response);
+				this.socket.on('data', data => {
+					/**
+					 * There are instances in which TCP packets get merged.
+					 * The server `\0\0`-terminates each JSON-encoded `SocketAPIMessage`;
+					 * reading each individually is as simple as splitting on `\0\0` and filtering out `null`.
+					 */
+					const decodedResponses: string[] = data.toString('utf8')
+															.split('\0\0')
+															.map(res => res.replace(/\0\0/gi, ''))
+															.filter(res => !(res === '' || res === null));
+					
+					decodedResponses.forEach(decodedResponse => {
+						let response;
+						try {
+							response = JSON.parse(decodedResponse) as SocketAPIMessage<unknown>
+						} catch(ex) {
+							console.log('There was an error parsing the SocketAPIMessage:', ex);
+							console.log('Decoded message:', decodedResponse);
+						}
+	
+						if (response === undefined || !this.isInstanceOfSocketAPIMessage(response))
+							return;
+	
+						this.eventEmitter.emit('messageReceived', response);
+	
+						if (response._type === 'event')
+							this.eventEmitter.emit('eventReceived', response);
+					});
 				});
+				
+				resolve(true);
 			});
 			
 			const errorHandler = () => { this._connected = false; this.socket.off('error', errorHandler); };
