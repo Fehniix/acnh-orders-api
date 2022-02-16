@@ -152,6 +152,13 @@ class SocketAPIClient {
 	}
 
 	/**
+	 * @returns `true` if connected to SysBot.NET
+	 */
+	public isConnected(): boolean {
+		return this._connected;
+	}
+
+	/**
 	 * `obj` type-guard. Determines whether `obj` conforms to the `SocketAPIMessage` interface.
 	 */
 	private isInstanceOfSocketAPIMessage(obj: any): obj is SocketAPIMessage<any> {
