@@ -52,12 +52,16 @@ class SocketAPIClient {
 		return new Promise<boolean>(resolve => {
 			this.socket.connect(port, ipAddress);
 
-			setTimeout(() => {
+			const timeoutInstance = setTimeout(() => {
+				if (this._connected)
+					return;
+
 				this.socket.removeAllListeners();
 				resolve(false);
 			}, timeout);
 
 			this.socket.once('connect', () => {
+				clearTimeout(timeoutInstance);
 				this.socket.setTimeout(0);
 				this._connected = true;
 
@@ -113,10 +117,10 @@ class SocketAPIClient {
 	 * @param timeout The number of milliseconds after which a response is to be considered lost.
 	 */
 	public async sendRequest<T>(request: SocketAPIRequest, timeout: number = 2000): Promise<SocketAPIMessage<T>> {
-		if (request.id === undefined)
-			throw new ReferenceError('request.id must be defined.');
-
 		return new Promise<SocketAPIMessage<T>>((resolve, reject) => {
+			if (request.id === undefined)
+				reject('request.id must be defined.');
+
 			this.socket.write(JSON.stringify(request), 'utf8', err => {
 				if (err !== undefined)
 					console.log(err.message);
