@@ -77,6 +77,11 @@ class SocketAPIClient {
 															.filter(res => !(res === '' || res === null));
 					
 					decodedResponses.forEach(decodedResponse => {
+						if (decodedResponse.startsWith('hb')) {
+							this.respondToHeartbeat(decodedResponse);
+							return;
+						}
+
 						let response;
 						try {
 							response = JSON.parse(decodedResponse) as SocketAPIMessage<unknown>
@@ -98,17 +103,32 @@ class SocketAPIClient {
 				resolve(true);
 			});
 			
-			const errorHandler = () => { this._connected = false; this.socket.off('error', errorHandler); };
+			const errorHandler = (err: any) => {
+				console.log('There was an error.', err);
+				this._connected = false; 
+				this.socket.off('error', errorHandler); 
+			};
 			this.socket.on('error', errorHandler);
 
-			this.socket.once('timeout', () => { 
+			this.socket.on('timeout', () => { 
+				console.log('timeout');
 				this.socket.setTimeout(0);
 				this.socket.destroy();
 				resolve(false); 
 			});
 
-			this.socket.once('close', () => { this._connected = false; });
+			this.socket.on('close', () => { 
+				console.log('close');
+				this._connected = false; 
+			});
 		});
+	}
+
+	/**
+	 * Responds to server's heartbeat request.
+	 */
+	private respondToHeartbeat(heartbeatPacket: string): void {
+		console.log(`Received heartbeat: ${heartbeatPacket}`);
 	}
 
 	/**
