@@ -1,9 +1,11 @@
-import net from 'net';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import { AsyncSocket } from './async-socket/AsyncSocket';
 import { SocketAPIMessage } from './model/SocketAPIMessage';
 import { SocketAPIOptions } from './model/SocketAPIOptions';
 import { SocketAPIRequest } from './model/SocketAPIRequest';
+
+import _debug from 'debug';
+const debug = _debug('socketAPIClient');
 
 /**
  * Describes a set of internal events, used to race a server response (whose id corresponds to the request) with a timeout.
@@ -52,43 +54,27 @@ class SocketAPIClient {
 			return false;
 
 		this.socket.on('timeout', () => { 
-			console.log('SocketAPIClient timeout');
+			debug('Underlying socket timeout.');
 			this.socket.destroy();
 		});
 
 		this.socket.on('close', () => { 
-			console.log('SocketAPIClient close');
+			debug('Underlying socket closed.');
 			this._connected = false;
 		});
 
 		this.socket.on('reconnectFailed', err => {
-			console.log('SocketAPIClient reconnect failed.', err);
+			debug('Reconnection failed with the following error: %o', err);
 		});
 
 		this.socket.on('reconnected', () => {
-			console.log('SocketAPIClient reconnected!');
+			debug('Successfully reconnected to host.');
 		});
 
 		try {
 			await this.socket.asyncConnect(port, ipAddress, options)
 		} catch(ex) {
-			let message: string | undefined = undefined;
-
-			if (typeof(ex) === 'string')
-				message = ex;
-
-			if (ex instanceof Error)
-				message = ex.message;
-
-			if (message === undefined) {
-				console.log('[SocketAPIClient] asyncConnect failed. No error message.');
-			}
-
-			if (message?.includes('timed out')) {
-				console.log('[SocketAPIClient] asyncConnect failed. Timed out.');
-			}
-
-			console.log('[SocketAPIClient] asyncConnect threw.', ex);
+			debug('Connection failed. Error: %o', ex);
 
 			return false;
 		}
