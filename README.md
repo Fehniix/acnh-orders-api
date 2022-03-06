@@ -18,7 +18,13 @@ npm install -S sysbot-net-api
 import { SocketAPIClient, SocketAPIRequest, SocketAPIMessage } from 'sysbot-net-api';
 
 // Start the client
-const _connected: boolean = await SocketAPIClient.start('127.0.0.1', 9001);
+const _connected: boolean = await SocketAPIClient.start('127.0.0.1', 9001, {
+    reconnect: true,
+    reconnectMaxRetries: 10,
+    reconnectTimeout: 4000,
+    connectTimeout: 8000,
+    requestTimeout: 4000
+});
 
 SocketAPIClient.subscribe(message => {
     console.log('Event received!', message); // Instance of `SocketAPIMessage`
@@ -46,6 +52,22 @@ const response: SocketAPIMessage<number> = await SocketAPIClient.sendRequest<num
 - `_type`: the type of response, can be either `event` or `response`; used internally.
 - `value`: contains the response body, the actual value of the response; `undefined` if the remote endpoint returns `Void`.
 - `error`: if the remote endpoint catches or throws an error, this would contain the error message.
+
+## Reconnection
+
+By passing a `SocketAPIOptions` object to the `.start()` method as third parameter, it is possible for the client to automatically reconnect to the initially designated host.
+
+Other options can be specified too:
+
+```javascript
+{
+    reconnect: true,            // Whether to enable auto-reconnect logic or not.
+    reconnectMaxRetries: 10,    // The maximum number of reconnect retries.
+    reconnectTimeout: 4000,     // The time that between a reconnection attempt and the next.
+    connectTimeout: 8000,       // The time it takes for the first connection (.start()) attempt to be considered timed out.
+    requestTimeout: 4000        // The time it takes for a request to the host to be considered timed out.
+}
+```
 
 ## License
 
