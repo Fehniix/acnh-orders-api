@@ -51,71 +51,84 @@ class SocketAPIClient {
 		if (this._connected)
 			return false;
 
-		return new Promise<boolean>(resolve => {
-			this.socket.on('timeout', () => { 
-				console.log('SocketAPIClient timeout');
-				this.socket.destroy();
-				resolve(false); 
-			});
-
-			this.socket.on('close', () => { 
-				console.log('SocketAPIClient close');
-				this._connected = false;
-			});
-
-			this.socket.asyncConnect(port, ipAddress, options)
-				.then(() => {
-					this.socket.on('data', data => {
-						/**
-						 * There are instances in which TCP packets get merged.
-						 * The server `\0\0`-terminates each JSON-encoded `SocketAPIMessage`;
-						 * reading each individually is as simple as splitting on `\0\0` and filtering out `null`.
-						 */
-						const decodedResponses: string[] = data.toString('utf8')
-																.split('\0\0')
-																.map(res => res.replace(/\0\0/gi, ''))
-																.filter(res => !(res === '' || res === null));
-						
-						decodedResponses.forEach(decodedResponse => {
-							if (decodedResponse.startsWith('hb')) {
-								this.respondToHeartbeat(decodedResponse);
-								return;
-							}
-	
-							let response;
-							try {
-								response = JSON.parse(decodedResponse) as SocketAPIMessage<unknown>
-							} catch(ex) {
-								console.log('There was an error parsing the SocketAPIMessage:', ex);
-								console.log('Decoded message:', decodedResponse);
-							}
-		
-							if (response === undefined || !this.isInstanceOfSocketAPIMessage(response))
-								return;
-		
-							this.eventEmitter.emit('messageReceived', response);
-		
-							if (response._type === 'event')
-								this.eventEmitter.emit('eventReceived', response);
-						});
-					});
-
-					resolve(true);
-				})
-				.catch(ex => {
-					const message: string | undefined = ex.message;
-
-					if (message === undefined) {
-						console.log('message undefined');
-					}
-
-					if (message?.includes('timed out')) {
-						console.log('timed out');
-					}
-
-					resolve(false);
-				});
+		this.socket.on('timeout', () => { 
+			console.log('SocketAPIClient timeout');
+			this.socket.destroy();
 		});
+
+		this.socket.on('close', () => { 
+			console.log('SocketAPIClient close');
+			this._connected = false;
+		});
+
+		this.socket.on('reconnectFailed', err => {
+			console.log('SocketAPIClient reconnect failed.', err);
+		});
+
+		this.socket.on('reconnected', () => {
+			console.log('SocketAPIClient reconnected!');
+		});
+
+		try {
+			await this.socket.asyncConnect(port, ipAddress, options)
+		} catch(ex) {
+			let message: string | undefined = undefined;
+
+			if (typeof(ex) === 'string')
+				message = ex;
+
+			if (ex instanceof Error)
+				message = ex.message;
+
+			if (message === undefined) {
+				console.log('[SocketAPIClient] asyncConnect failed. No error message.');
+			}
+
+			if (message?.includes('timed out')) {
+				console.log('[SocketAPIClient] asyncConnect failed. Timed out.');
+			}
+
+			console.log('[SocketAPIClient] asyncConnect threw.', ex);
+
+			return false;
+		}
+				
+		this.socket.on('data', data => {
+			/**
+			 * There are instances in which TCP packets get merged.
+			 * The server `\0\0`-terminates each JSON-encoded `SocketAPIMessage`;
+			 * reading each individually is as simple as splitting on `\0\0` and filtering out `null`.
+			 */
+			const decodedResponses: string[] = data.toString('utf8')
+													.split('\0\0')
+													.map(res => res.replace(/\0\0/gi, ''))
+													.filter(res => !(res === '' || res === null));
+			
+			decodedResponses.forEach(decodedResponse => {
+				if (decodedResponse.startsWith('hb')) {
+					this.respondToHeartbeat(decodedResponse);
+					return;
+				}
+
+				let response;
+				try {
+					response = JSON.parse(decodedResponse) as SocketAPIMessage<unknown>
+				} catch(ex) {
+					console.log('There was an error parsing the SocketAPIMessage:', ex);
+					console.log('Decoded message:', decodedResponse);
+				}
+
+				if (response === undefined || !this.isInstanceOfSocketAPIMessage(response))
+					return;
+
+				this.eventEmitter.emit('messageReceived', response);
+
+				if (response._type === 'event')
+					this.eventEmitter.emit('eventReceived', response);
+			});
+		});
+
+		return true;
 	}
 
 	/**

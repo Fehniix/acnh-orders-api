@@ -29,9 +29,11 @@
   },
   "homepage": "https://github.com:Fehniix/sysbot-net-api.git#readme",
   "devDependencies": {
+    "@types/debug": "^4.1.7",
     "@types/node": "~17.0.12"
   },
   "dependencies": {
+    "debug": "^4.3.3",
     "tiny-typed-emitter": "~2.1.0"
   }
 }
