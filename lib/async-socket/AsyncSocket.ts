@@ -5,6 +5,7 @@ import { Socket } from "net";
  * Adds the following events:
  * 
  * * `'reconnecting'`: raised whenever the connection gets closed.
+ * * `'reconnected'`: ...
  */
 class AsyncSocket extends Socket {
 	/**
@@ -24,19 +25,43 @@ class AsyncSocket extends Socket {
 	 */
 	private reconnectionAttempts: number = 0;
 
+	// Default values.
+	private readonly defaultConnectTimeout: number = 8000;
+	private readonly defaultReconnectTimeout: number = 8000;
+	private readonly defaultReconnectMaxRetries: number = 3;
+
 	/**
 	 * Resolves if connection to the supplied endpoint was successful, rejects otherwise.
 	 * @param port The port of the remote endpoint.
 	 * @param host The hostname of the remote endpoint.
 	 */
 	public async asyncConnect(port: number, host: string, options?: AsyncSocketOptions): Promise<void> {
+		return new Promise(async (resolve, reject) => {
+			if (options?.reconnect === true)
+				this.on('close', async _hadError => {
+					console.log('asyncConnect closed, reconnecting. Had error:', _hadError);
+					await this.reconnect(port, host, options);
+				});
+
+			await this.asyncConnectNoRetry(port, host, options);
+		});
+	}
+
+	/**
+	 * Used internally to connect to the remote host without handling retry logic.
+	 * Useful to logically separate the act of connection to remote host and re-attempting to connect.
+	 */
+	private async asyncConnectNoRetry(port: number, host: string, options?: AsyncSocketOptions): Promise<void> {
 		return new Promise((resolve, reject) => {
 			const timeoutHandler = () => {
+				if (this._connected === true)
+					return;
+
 				this._connected = false;
 				console.log('asyncConnect timed out.');
 				reject(new Error("The connection request timed out."));
 			};
-			const timeout = setTimeout(timeoutHandler, options?.connectTimeout ?? 8000);
+			const timeout = setTimeout(timeoutHandler, options?.connectTimeout ?? this.defaultConnectTimeout);
 
 			const errorHandler = (err: Error) => {
 				clearTimeout(timeout);
@@ -56,14 +81,6 @@ class AsyncSocket extends Socket {
 				console.log('asyncConnect connected.');
 				resolve();
 			});
-
-			if (options?.reconnect === true)
-				this.on('close', _hadError => {
-					setTimeout(async () => {
-						console.log('asyncConnect closed, reconnecting.');
-						await this.reconnect(port, host, options);
-					}, options?.reconnectTimeout ?? 8000);
-				});
 		});
 	}
 
@@ -73,7 +90,7 @@ class AsyncSocket extends Socket {
 	private async reconnect(port: number, host: string, options?: AsyncSocketOptions): Promise<void> {
 		return new Promise(async (resolve, reject) => {
 			const retryIndefinitely: boolean 	= options?.reconnectMaxRetries === -1;
-			const withinMaxRetries: boolean 	= this.reconnectionAttempts < (options?.reconnectMaxRetries ?? 3);
+			const withinMaxRetries: boolean 	= this.reconnectionAttempts < (options?.reconnectMaxRetries ?? this.defaultReconnectMaxRetries);
 
 			while (withinMaxRetries || retryIndefinitely) {
 				this.reconnectionAttempts++;
@@ -82,9 +99,12 @@ class AsyncSocket extends Socket {
 				this.emit('reconnecting');
 	
 				try {
-					await this.asyncConnect(port, host, options);
+					// Sleep.
+					await new Promise(r => setTimeout(r, options?.reconnectTimeout ?? this.defaultReconnectTimeout));
+
+					await this.asyncConnectNoRetry(port, host, options);
 					console.log('asyncConnect reconnected. Reset reconnectionAttempts.');
-					this.reconnectionAttempts = options?.reconnectMaxRetries ?? 3;
+					this.reconnectionAttempts = 0;
 					this.emit('reconnected');
 					resolve();
 				} catch(ex) {
@@ -93,7 +113,7 @@ class AsyncSocket extends Socket {
 				}
 			}
 	
-			this.emit('error', new Error(`Maximum retries (${options?.reconnectMaxRetries ?? 3}) reached.`));
+			this.emit('error', new Error(`Maximum retries (${options?.reconnectMaxRetries ?? this.defaultReconnectMaxRetries}) reached.`));
 		});
 	}
 }
@@ -116,13 +136,15 @@ type AsyncSocketOptions = {
 
 	/**
 	 * The wait time between reconnection attempts. Expressed in milliseconds.
+	 * 
+	 * Default: `8000`ms.
 	 */
 	reconnectTimeout?: number,
 
 	/**
 	 * The time it takes, in milliseconds, for a connection request to be considered timed out. 
 	 * 
-	 * Default: `8000`.
+	 * Default: `8000`ms.
 	 */
 	connectTimeout?: number
 };

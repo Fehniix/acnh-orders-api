@@ -1,6 +1,8 @@
 import net from 'net';
 import { TypedEmitter } from 'tiny-typed-emitter';
+import { AsyncSocket } from './async-socket/AsyncSocket';
 import { SocketAPIMessage } from './model/SocketAPIMessage';
+import { SocketAPIOptions } from './model/SocketAPIOptions';
 import { SocketAPIRequest } from './model/SocketAPIRequest';
 
 /**
@@ -23,17 +25,17 @@ class SocketAPIClient {
 	/**
 	 * Remote .NET server socket instance. 
 	 */
-	private socket: net.Socket;
+	private socket: AsyncSocket;
 
 	/**
 	 * Used to notify whenever a message was received from the server, for ID validation.
 	 */
 	private eventEmitter: TypedEmitter<InternalSocketEvent>;
 
-	public constructor() {
-		this.socket = new net.Socket();
-		this.socket.setTimeout(2000);
+	private readonly defaultRequestTimeout: number = 2000;
 
+	public constructor() {
+		this.socket = new AsyncSocket();
 		this.eventEmitter = new TypedEmitter<InternalSocketEvent>();
 
 		this._connected = false;
@@ -43,84 +45,76 @@ class SocketAPIClient {
 	 * Establishes a TCP communication channel with the server designated by the supplied endpoint. 
 	 * @param ipAddress The IP address of the server.
 	 * @param port The port on which the server is accepting new clients.
-	 * @param timeout The number of milliseconds to wait before the starting process is considered timeout out.
+	 * @param options Configuration object.
 	 */
-	public async start(ipAddress: string, port: number, timeout: number = 5000): Promise<boolean> {
+	public async start(ipAddress: string, port: number, options?: SocketAPIOptions): Promise<boolean> {
 		if (this._connected)
 			return false;
 
 		return new Promise<boolean>(resolve => {
-			this.socket.connect(port, ipAddress);
-
-			const timeoutInstance = setTimeout(() => {
-				if (this._connected)
-					return;
-
-				this.socket.removeAllListeners();
-				resolve(false);
-			}, timeout);
-
-			this.socket.once('connect', () => {
-				clearTimeout(timeoutInstance);
-				this.socket.setTimeout(0);
-				this._connected = true;
-
-				this.socket.on('data', data => {
-					/**
-					 * There are instances in which TCP packets get merged.
-					 * The server `\0\0`-terminates each JSON-encoded `SocketAPIMessage`;
-					 * reading each individually is as simple as splitting on `\0\0` and filtering out `null`.
-					 */
-					const decodedResponses: string[] = data.toString('utf8')
-															.split('\0\0')
-															.map(res => res.replace(/\0\0/gi, ''))
-															.filter(res => !(res === '' || res === null));
-					
-					decodedResponses.forEach(decodedResponse => {
-						if (decodedResponse.startsWith('hb')) {
-							this.respondToHeartbeat(decodedResponse);
-							return;
-						}
-
-						let response;
-						try {
-							response = JSON.parse(decodedResponse) as SocketAPIMessage<unknown>
-						} catch(ex) {
-							console.log('There was an error parsing the SocketAPIMessage:', ex);
-							console.log('Decoded message:', decodedResponse);
-						}
-	
-						if (response === undefined || !this.isInstanceOfSocketAPIMessage(response))
-							return;
-	
-						this.eventEmitter.emit('messageReceived', response);
-	
-						if (response._type === 'event')
-							this.eventEmitter.emit('eventReceived', response);
-					});
-				});
-				
-				resolve(true);
-			});
-			
-			const errorHandler = (err: any) => {
-				console.log('There was an error.', err);
-				this._connected = false; 
-				this.socket.off('error', errorHandler); 
-			};
-			this.socket.on('error', errorHandler);
-
 			this.socket.on('timeout', () => { 
-				console.log('timeout');
-				this.socket.setTimeout(0);
+				console.log('SocketAPIClient timeout');
 				this.socket.destroy();
 				resolve(false); 
 			});
 
 			this.socket.on('close', () => { 
-				console.log('close');
-				this._connected = false; 
+				console.log('SocketAPIClient close');
+				this._connected = false;
 			});
+
+			this.socket.asyncConnect(port, ipAddress, options)
+				.then(() => {
+					this.socket.on('data', data => {
+						/**
+						 * There are instances in which TCP packets get merged.
+						 * The server `\0\0`-terminates each JSON-encoded `SocketAPIMessage`;
+						 * reading each individually is as simple as splitting on `\0\0` and filtering out `null`.
+						 */
+						const decodedResponses: string[] = data.toString('utf8')
+																.split('\0\0')
+																.map(res => res.replace(/\0\0/gi, ''))
+																.filter(res => !(res === '' || res === null));
+						
+						decodedResponses.forEach(decodedResponse => {
+							if (decodedResponse.startsWith('hb')) {
+								this.respondToHeartbeat(decodedResponse);
+								return;
+							}
+	
+							let response;
+							try {
+								response = JSON.parse(decodedResponse) as SocketAPIMessage<unknown>
+							} catch(ex) {
+								console.log('There was an error parsing the SocketAPIMessage:', ex);
+								console.log('Decoded message:', decodedResponse);
+							}
+		
+							if (response === undefined || !this.isInstanceOfSocketAPIMessage(response))
+								return;
+		
+							this.eventEmitter.emit('messageReceived', response);
+		
+							if (response._type === 'event')
+								this.eventEmitter.emit('eventReceived', response);
+						});
+					});
+
+					resolve(true);
+				})
+				.catch(ex => {
+					const message: string | undefined = ex.message;
+
+					if (message === undefined) {
+						console.log('message undefined');
+					}
+
+					if (message?.includes('timed out')) {
+						console.log('timed out');
+					}
+
+					resolve(false);
+				});
 		});
 	}
 
@@ -136,7 +130,7 @@ class SocketAPIClient {
 	 * @param request The `SocketAPIRequest` instance to send to the .NET server.
 	 * @param timeout The number of milliseconds after which a response is to be considered lost.
 	 */
-	public async sendRequest<T>(request: SocketAPIRequest, timeout: number = 2000): Promise<SocketAPIMessage<T>> {
+	public async sendRequest<T>(request: SocketAPIRequest, timeout: number = this.defaultRequestTimeout): Promise<SocketAPIMessage<T>> {
 		return new Promise<SocketAPIMessage<T>>((resolve, reject) => {
 			if (request.id === undefined)
 				reject('request.id must be defined.');
