@@ -53,6 +53,12 @@ const response: SocketAPIMessage<number> = await SocketAPIClient.sendRequest<num
 - `value`: contains the response body, the actual value of the response; `undefined` if the remote endpoint returns `Void`.
 - `error`: if the remote endpoint catches or throws an error, this would contain the error message.
 
+## Heartbeats
+
+The remote host periodically sends special packets to check against half-open connections and eventually handle and dispose the client's socket.
+
+These packets contain a message that starts with `hb`, followed by a space `\s` and a UUID string that uniquely identifies the sent heartbeat. The client must reply to the remote host with exactly the same message it received.
+
 ## Reconnection
 
 By passing a `SocketAPIOptions` object to the `.start()` method as third parameter, it is possible for the client to automatically reconnect to the initially designated host.
@@ -68,6 +74,10 @@ Other options can be specified too:
     requestTimeout: 4000        // The time it takes for a request to the host to be considered timed out.
 }
 ```
+
+## `debug`
+
+This package uses the [npm `debug`](https://github.com/debug-js/debug) package to output useful debug info to console. Subscribe to the debug `asyncSocket` and `socketAPIClient` topics to show debug info to console.
 
 ## License
 

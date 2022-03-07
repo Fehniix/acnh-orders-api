@@ -34,4 +34,9 @@ export type SocketAPIOptions = {
 	  * Default: `2000`ms.
 	  */
 	requestTimeout?: number;
+
+	/**
+	 * The frequency of heartbeat checks. This is useful in determining whether the remote host is responsive or not.
+	 */
+	heatbeatCheckInterval?: number;
 };

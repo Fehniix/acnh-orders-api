@@ -36,6 +36,7 @@ class AsyncSocket extends Socket {
 
 	private port!: number;
 	private host!: string;
+	private options?: AsyncSocketOptions;
 
 	// Default values.
 	private readonly defaultConnectTimeout: number = 8000;
@@ -50,6 +51,7 @@ class AsyncSocket extends Socket {
 	public async asyncConnect(port: number, host: string, options?: AsyncSocketOptions): Promise<void> {
 		this.port = port;
 		this.host = host;
+		this.options = options;
 
 		if (options?.reconnect === true) {
 			this.on('close', () => {
@@ -169,6 +171,7 @@ class AsyncSocket extends Socket {
 
 				this.reconnectionAttempts = 0;
 				this.reconnecting = false;
+				this._connected = true;
 
 				this.emit('reconnected');
 				return;
@@ -202,6 +205,25 @@ class AsyncSocket extends Socket {
 			throw new Error('Could not reconnect. Already reconnecting.');
 
 		await this.asyncConnectNoRetry(this.port, this.host);
+	}
+
+	/**
+	 * Signals this `AsyncSocket` instance that the remote host stopped sending heartbeats, initiating the reconnect sequence.
+	 * @throws A generic Error is thrown whenever:
+	 * * `.asyncConnect(port, host, options?)` was never called before,
+	 * * Connection to the host is already established,
+	 * * A reconnection attempt is already on-going,
+	 * * Reconnection to the host fails.
+	 */
+	public flatlined(): void {
+		debug('Flatlined.');
+
+		this._connected = false;
+		
+		if (this.port === undefined || this.host === undefined)
+			throw new Error('Could not reconnect. `asyncConnect` was never called before.');
+
+		this.initiateReconnectionAttempts(this.port, this.host, this.options);
 	}
 }
 

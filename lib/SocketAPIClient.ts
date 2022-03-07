@@ -20,11 +20,6 @@ interface InternalSocketEvent {
  */
 class SocketAPIClient {
 	/**
-	 * Whether the client successfully connected to the remote .NET server.
-	 */
-	private _connected: boolean;
-
-	/**
 	 * Remote .NET server socket instance. 
 	 */
 	private socket: AsyncSocket;
@@ -34,13 +29,26 @@ class SocketAPIClient {
 	 */
 	private eventEmitter: TypedEmitter<InternalSocketEvent>;
 
+	/**
+	 * The heartbeat timer.
+	 */
+	private heartbeatInterval?: NodeJS.Timer;
+
+	/**
+	 * Useful in determining whether or not the remote host is responsive.
+	 */
+	private receivedHeartbeat: boolean = false;
+
 	private readonly defaultRequestTimeout: number = 2000;
+	private readonly defaultHeartbeatInterval: number = 8000;
+
+	private ipAddress!: string;
+	private port!: number;
+	private options?: SocketAPIOptions;
 
 	public constructor() {
 		this.socket = new AsyncSocket();
 		this.eventEmitter = new TypedEmitter<InternalSocketEvent>();
-
-		this._connected = false;
 	}
 
 	/**
@@ -50,8 +58,14 @@ class SocketAPIClient {
 	 * @param options Configuration object.
 	 */
 	public async start(ipAddress: string, port: number, options?: SocketAPIOptions): Promise<boolean> {
-		if (this._connected)
+		if (this.isConnected())
 			return false;
+
+		this.ipAddress = ipAddress;
+		this.port = port;
+		this.options = options;
+
+		this.socket = new AsyncSocket();
 
 		this.socket.on('timeout', () => { 
 			debug('Underlying socket timeout.');
@@ -60,7 +74,6 @@ class SocketAPIClient {
 
 		this.socket.on('close', () => { 
 			debug('Underlying socket closed.');
-			this._connected = false;
 		});
 
 		this.socket.on('reconnectFailed', err => {
@@ -69,6 +82,7 @@ class SocketAPIClient {
 
 		this.socket.on('reconnected', () => {
 			debug('Successfully reconnected to host.');
+			this.startHeartbeatCheckTimer();
 		});
 
 		try {
@@ -78,6 +92,8 @@ class SocketAPIClient {
 
 			return false;
 		}
+
+		this.startHeartbeatCheckTimer();
 				
 		this.socket.on('data', data => {
 			/**
@@ -118,10 +134,40 @@ class SocketAPIClient {
 	}
 
 	/**
+	 * Starts the heartbeat check timer.
+	 * It allows the client to detect an half-open connection and handle it.
+	 */
+	private startHeartbeatCheckTimer(): void {
+		debug('Started heartbeat check timer.');
+
+		this.heartbeatInterval = setInterval(() => {
+			if (this.receivedHeartbeat)
+				return;
+
+			if (this.heartbeatInterval === undefined)
+				return;
+
+			clearInterval(this.heartbeatInterval);
+
+			debug(`No heartbeat from server received in the last ${this.options?.heatbeatCheckInterval ?? this.defaultHeartbeatInterval}ms, connection closed. Calling .start().`);
+
+			this.socket.removeAllListeners();
+			this.socket.destroy();
+			this.socket = new AsyncSocket();
+
+			this.start(this.ipAddress, this.port, this.options);
+			// find a better alternative to responding to a flatline
+		}, this.options?.heatbeatCheckInterval ?? this.defaultHeartbeatInterval);
+	}
+
+	/**
 	 * Responds to server's heartbeat request.
 	 */
 	private respondToHeartbeat(heartbeatPacket: string): void {
-		console.log(`Received heartbeat: ${heartbeatPacket}`);
+		debug(`Received heartbeat: ${heartbeatPacket}`);
+		this.receivedHeartbeat = true;
+		this.socket.write(heartbeatPacket);
+		debug(`Responded to heartbeat: ${heartbeatPacket}`);
 	}
 
 	/**
@@ -131,6 +177,9 @@ class SocketAPIClient {
 	 */
 	public async sendRequest<T>(request: SocketAPIRequest, timeout: number = this.defaultRequestTimeout): Promise<SocketAPIMessage<T>> {
 		return new Promise<SocketAPIMessage<T>>((resolve, reject) => {
+			if (!this.isConnected())
+				reject('AsyncSocket not connected.');
+
 			if (request.id === undefined)
 				reject('request.id must be defined.');
 
@@ -176,7 +225,7 @@ class SocketAPIClient {
 	 * @returns `true` if connected to SysBot.NET
 	 */
 	public isConnected(): boolean {
-		return this._connected;
+		return this.socket.connected;
 	}
 
 	/**
