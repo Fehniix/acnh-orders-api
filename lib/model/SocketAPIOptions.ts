@@ -38,5 +38,5 @@ export type SocketAPIOptions = {
 	/**
 	 * The frequency of heartbeat checks. This is useful in determining whether the remote host is responsive or not.
 	 */
-	heatbeatCheckInterval?: number;
+	heartbeatCheckInterval?: number;
 };

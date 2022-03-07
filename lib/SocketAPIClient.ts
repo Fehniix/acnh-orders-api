@@ -149,7 +149,7 @@ class SocketAPIClient {
 
 			clearInterval(this.heartbeatInterval);
 
-			debug(`No heartbeat from server received in the last ${this.options?.heatbeatCheckInterval ?? this.defaultHeartbeatInterval}ms, connection closed. Calling .start().`);
+			debug(`No heartbeat from server received in the last ${this.options?.heartbeatCheckInterval ?? this.defaultHeartbeatInterval}ms, connection closed. Calling .start().`);
 
 			this.socket.removeAllListeners();
 			this.socket.destroy();
@@ -157,7 +157,7 @@ class SocketAPIClient {
 
 			this.start(this.ipAddress, this.port, this.options);
 			// find a better alternative to responding to a flatline
-		}, this.options?.heatbeatCheckInterval ?? this.defaultHeartbeatInterval);
+		}, this.options?.heartbeatCheckInterval ?? this.defaultHeartbeatInterval);
 	}
 
 	/**
