@@ -174,6 +174,7 @@ class SocketAPIClient {
 	 * Sends a request to the remote .NET server and returns the server's response.
 	 * @param request The `SocketAPIRequest` instance to send to the .NET server.
 	 * @param timeout The number of milliseconds after which a response is to be considered lost.
+	 * @rejects If the `AsyncSocket` is not connected, the request `id` is undefined, or if the request times out.
 	 */
 	public async sendRequest<T>(request: SocketAPIRequest, timeout: number = this.defaultRequestTimeout): Promise<SocketAPIMessage<T>> {
 		return new Promise<SocketAPIMessage<T>>((resolve, reject) => {
