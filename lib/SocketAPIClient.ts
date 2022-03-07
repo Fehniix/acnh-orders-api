@@ -116,8 +116,8 @@ class SocketAPIClient {
 				try {
 					response = JSON.parse(decodedResponse) as SocketAPIMessage<unknown>
 				} catch(ex) {
-					console.log('There was an error parsing the SocketAPIMessage:', ex);
-					console.log('Decoded message:', decodedResponse);
+					debug('There was an error parsing the SocketAPIMessage: %o', ex);
+					debug(`Decoded message: ${decodedResponse}`);
 				}
 
 				if (response === undefined || !this.isInstanceOfSocketAPIMessage(response))
@@ -186,7 +186,7 @@ class SocketAPIClient {
 
 			this.socket.write(JSON.stringify(request), 'utf8', err => {
 				if (err !== undefined)
-					console.log(err.message);
+					debug('There was an error while attempting to send a request to the server: %o', err);
 			});
 
 			const _timeout = setTimeout(() => {
