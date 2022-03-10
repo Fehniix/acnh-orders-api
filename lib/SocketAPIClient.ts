@@ -156,7 +156,6 @@ class SocketAPIClient {
 			this.socket = new AsyncSocket();
 
 			this.start(this.ipAddress, this.port, this.options);
-			// find a better alternative to responding to a flatline
 		}, this.options?.heartbeatCheckInterval ?? this.defaultHeartbeatInterval);
 	}
 
