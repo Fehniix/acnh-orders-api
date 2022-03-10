@@ -1,6 +1,6 @@
 {
   "name": "sysbot-net-api",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "A very simple and lightweight package that allows to subscribe to events coming from SysBot.ACNHOrders and make HTTP-like requests to it, via the bot's SocketAPIServer.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
