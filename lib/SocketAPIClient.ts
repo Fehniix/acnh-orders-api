@@ -18,7 +18,7 @@ interface InternalSocketEvent {
 /**
  * The object responsible for sending requests to the .NET `SocketAPIServer`, receiving responses and subscribing to events emitted by the server.
  */
-class SocketAPIClient {
+export class SocketAPIClient {
 	/**
 	 * Remote .NET server socket instance. 
 	 */
