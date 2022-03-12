@@ -39,4 +39,9 @@ export type SocketAPIOptions = {
 	 * The frequency of heartbeat checks. This is useful in determining whether the remote host is responsive or not.
 	 */
 	heartbeatCheckInterval?: number;
+
+	/**
+	 * Whether to output debug heartbeat logs or not.
+	 */
+	noHeartbeatLogs?: boolean;
 };

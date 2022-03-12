@@ -163,10 +163,14 @@ class SocketAPIClient {
 	 * Responds to server's heartbeat request.
 	 */
 	private respondToHeartbeat(heartbeatPacket: string): void {
-		debug(`Received heartbeat: ${heartbeatPacket}`);
+		if (!(this.options?.noHeartbeatLogs ?? false))
+			debug(`Received heartbeat: ${heartbeatPacket}`);
+
 		this.receivedHeartbeat = true;
 		this.socket.write(heartbeatPacket);
-		debug(`Responded to heartbeat: ${heartbeatPacket}`);
+
+		if (!(this.options?.noHeartbeatLogs ?? false))
+			debug(`Responded to heartbeat: ${heartbeatPacket}`);
 	}
 
 	/**
