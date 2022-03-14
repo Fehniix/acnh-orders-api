@@ -77,7 +77,7 @@ export class SocketAPIClient {
 		});
 
 		this.socket.on('reconnectFailed', err => {
-			debug('Reconnection failed with the following error: %o', err?.message);
+			debug(`Reconnection [#${err.attemptCount} of ${err.maxAttempts} max retries] failed with the following error: ${err.error?.message}.`);
 		});
 
 		this.socket.on('reconnected', () => {

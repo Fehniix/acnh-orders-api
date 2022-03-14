@@ -177,7 +177,11 @@ class AsyncSocket extends Socket {
 				return;
 			} catch(ex) {
 				debug(`Reconnection attempt #${this.reconnectionAttempts} failed. Retrying.`);
-				this.emit('reconnectFailed', ex);
+				this.emit('reconnectFailed', {
+					error: ex, 
+					attemptCount: this.reconnectionAttempts, 
+					maxAttempts: options?.reconnectMaxRetries ?? this.defaultReconnectMaxRetries
+				});
 			}
 		}
 
