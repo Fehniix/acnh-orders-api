@@ -54,10 +54,10 @@ class AsyncSocket extends Socket {
 		this.options = options;
 
 		if (options?.reconnect === true) {
-			this.on('close', () => {
+			const reconnectHandler = (eventName: string) => {
 				this._connected = false;
 				
-				debug('Received "close" event.');
+				debug(`Received '${eventName}' event.`);
 
 				if (!this.canReconnect(options!)) {
 					debug('.canReconnect() === false.');
@@ -69,9 +69,12 @@ class AsyncSocket extends Socket {
 						debug('Reconnected successfully.');
 					})
 					.catch(ex => {
-						debug('There was a problem while reconnecting to the host: %o', ex);
+						debug('There was a problem while reconnecting to the host: %O', ex);
 					});
-			});
+			};
+
+			this.on('close', () => { reconnectHandler('close'); });
+			this.on('error', () => { reconnectHandler('error'); });
 		}
 
 		await this.asyncConnectNoRetry(port, host, options);
@@ -101,7 +104,7 @@ class AsyncSocket extends Socket {
 
 				this._connected = false;
 
-				debug('Connection attempt failed, error raised: %o', err);
+				debug('Connection attempt failed, error raised: %O', err);
 
 				reject(err);
 			};

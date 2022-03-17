@@ -76,6 +76,10 @@ export class SocketAPIClient {
 			debug('Underlying socket closed.');
 		});
 
+		this.socket.on('error', err => {
+			debug('A socket error was thrown: %O', err);
+		});
+
 		this.socket.on('reconnectFailed', err => {
 			debug(`Reconnection [#${err.attemptCount} of ${err.maxAttempts} max retries] failed with the following error: ${err.error?.message}.`);
 		});
@@ -88,7 +92,7 @@ export class SocketAPIClient {
 		try {
 			await this.socket.asyncConnect(port, ipAddress, options)
 		} catch(ex) {
-			debug('Connection failed. Error: %o', ex);
+			debug('Connection failed. Error: %O', ex);
 
 			return false;
 		}
@@ -116,7 +120,7 @@ export class SocketAPIClient {
 				try {
 					response = JSON.parse(decodedResponse) as SocketAPIMessage<unknown>
 				} catch(ex) {
-					debug('There was an error parsing the SocketAPIMessage: %o', ex);
+					debug('There was an error parsing the SocketAPIMessage: %O', ex);
 					debug(`Decoded message: ${decodedResponse}`);
 				}
 
@@ -189,7 +193,7 @@ export class SocketAPIClient {
 
 			this.socket.write(JSON.stringify(request), 'utf8', err => {
 				if (err !== undefined)
-					debug('There was an error while attempting to send a request to the server: %o', err);
+					debug('There was an error while attempting to send a request to the server: %O', err);
 			});
 
 			const _timeout = setTimeout(() => {
